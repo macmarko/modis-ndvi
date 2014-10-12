@@ -4,11 +4,11 @@ import csv
 from shapely.wkb import loads
 from osgeo import ogr
 
-godina = 2004
+year = 2004
 
-path_1 = "/home/marko/Diplomski/Download_podaci/" + str(godina) + "/" + str(godina) + "_Crop_NDVI/"
+path_1 = "/home/marko/Diplomski/Download_podaci/" + str(year) + "/" + str(year) + "_Crop_NDVI/"
 piezo_path = "/home/marko/Diplomski/Download_podaci/piezometri/spacva_lokacije.shp"
-csv_path = "/home/marko/Diplomski/Download_podaci/" + str(godina) + "/" + str(godina) +"_vrijednosti_NDVI.csv"
+csv_path = "/home/marko/Diplomski/Download_podaci/" + str(year) + "/" + str(year) +"_vrijednosti_NDVI.csv"
 
 dirList_1 = sorted(os.listdir(path_1))
 
