@@ -1,0 +1,36 @@
+INSERT into spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext) values ( 96842, 'sr-org', 6842, '+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs ', 'PROJCS["Sinusoidal",GEOGCS["GCS_Undefined",DATUM["Undefined",SPHEROID["User_Defined_Spheroid",6371007.181,0.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]');
+
+$raster2pgsql -M -I -C -F -s 96842 path.../2004/2004_Crop_NDVI/*.tif  public.rasteri_ndvi | psql username(postgres) -d database(diplomski) -h host(localhost) -p port(5432)
+
+ALTER TABLE rasteri_ndvi ADD COLUMN vrijeme DATE;
+
+UPDATE rasteri_ndvi SET vrijeme=to_date(substring(filename FROM 6 FOR 7), 'YYYYDDD');
+
+$shp2pgsql -c -D -S -s 96842 -i -I piezometri_lokacije.shp public.piezometri | psql -d diplomski -U postgres -h localhost -p 5432
+
+SELECT updategeometrysrid('public', 'piezometri', 'geom', 96842);
+
+SELECT vrijeme, ST_Neighborhood(rast_crop, (SELECT geom FROM piezometri WHERE id=1), 1, 1) FROM rasteri_ndvi ORDER BY vrijeme;
+
+SELECT AVG(UNNEST(ST_Neighborhood(rast, (SELECT geom FROM piezometri WHERE id=1), 1, 1))) FROM rasteri_ndvi;
+
+CREATE OR REPLACE FUNCTION avg_matrix(double precision[])
+  RETURNS double precision AS $$
+  SELECT avg(v) FROM unnest($1) g(v)
+  $$ LANGUAGE sql;
+
+ALTER TABLE rasteri_ndvi ADD COLUMN piezo_1 FLOAT;
+
+UPDATE rasteri_ndvi SET piezo_1 = (SELECT avg_matrix( ST_Neighborhood(rast, (SELECT geom FROM piezometri	WHERE id=1),1, 1)));
+
+CREATE TABLE crop_polygon (id SERIAL PRIMARY KEY);
+
+SELECT AddGeometryColumn('public','crop_polygon','geom',96842, POLYGON', 2);
+
+INSERT INTO crop_polygon (id, geom) VALUES (1, ST_GeomFromText('POLYGON((1439512 4986866,1515727 4986866, 1515727 5043853,1439512 5043853,1439512 4986866))', 6842));
+
+ALTER TABLE rasteri ADD COLUMN rast_crop_poly RASTER;
+
+UPDATE rasteri SET rast_crop_poly=(SELECT ST_Clip(rast,(SELECT geom FROM	crop_polygon WHERE id = 1)));
+
+UPDATE rasteri SET rast_crop=(SELECT ST_Clip(rast, (SELECT ST_GeomFromText('POLYGON((1439512 4986866,1515727 4986866,1515727 5043853,1439512 5043853,1439512 4986866))', 96842))));
